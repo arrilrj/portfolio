@@ -1,0 +1,2884 @@
+const $ = (s, p = document) => p.querySelector(s);
+const $$ = (s, p = document) => Array.from(p.querySelectorAll(s));
+
+window.addEventListener("load", () => {
+  const loaderChars = $$(".loader-char");
+  const loaderSub = $("#loaderSub");
+  const loaderLineTop = $("#loaderLineTop");
+  const loaderLineBottom = $("#loaderLineBottom");
+  const corners = $$(".loader-corner");
+  const loaderOverlay = $("#loaderOverlay");
+  const loaderProgress = $("#loaderProgress");
+  const mainContent = $("#mainContent");
+
+  setTimeout(() => {
+    loaderLineTop.classList.add("expand");
+    loaderLineBottom.classList.add("expand");
+    corners.forEach((c) => c.classList.add("show"));
+  }, 100);
+
+  loaderChars.forEach((char, i) => {
+    setTimeout(
+      () => {
+        char.classList.add("show");
+        setTimeout(() => char.classList.add("fill"), 400);
+      },
+      200 + i * 80,
+    );
+  });
+
+
+  setTimeout(() => loaderSub.classList.add("show"), 1000);
+
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress >= 100) {
+      progress = 100;
+      clearInterval(interval);
+      setTimeout(() => {
+        loaderOverlay.classList.add("exit");
+        mainContent.classList.add("visible");
+        setTimeout(() => loaderOverlay.classList.add("gone"), 1000);
+      }, 400);
+    }
+    loaderProgress.style.width = progress + "%";
+  }, 120);
+});
+
+const clock = $("#clock");
+function updateClock() {
+  const now = new Date();
+  clock.textContent = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+const nav = $("#mainNav");
+const scrollProgress = $("#scrollProgress");
+const backToTop = $("#backToTop");
+
+window.addEventListener("scroll", () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  scrollProgress.style.width = (scrollTop / docHeight) * 100 + "%";
+  nav.classList.toggle("scrolled", scrollTop > 60);
+  backToTop.classList.toggle("visible", scrollTop > 400);
+});
+
+backToTop.addEventListener("click", () =>
+  window.scrollTo({ top: 0, behavior: "smooth" }),
+);
+
+const cursor = $("#cursor");
+const cursorTrail = $("#cursorTrail");
+let mouseX = 0,
+  mouseY = 0,
+  trailX = 0,
+  trailY = 0;
+
+window.addEventListener("mousemove", (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  cursor.style.transform = `translate(${mouseX}px,${mouseY}px) translate(-50%,-50%)`;
+  cursorTrail.classList.add("active");
+});
+
+(function animateTrail() {
+  trailX += (mouseX - trailX) * 0.15;
+  trailY += (mouseY - trailY) * 0.15;
+  cursorTrail.style.transform = `translate(${trailX}px,${trailY}px) translate(-50%,-50%)`;
+  requestAnimationFrame(animateTrail);
+})();
+
+document.addEventListener("mouseleave", () =>
+  cursorTrail.classList.remove("active"),
+);
+$$("[data-hover]").forEach((el) => {
+  el.addEventListener("mouseenter", () => cursor.classList.add("hover"));
+  el.addEventListener("mouseleave", () => cursor.classList.remove("hover"));
+});
+document.addEventListener("mousedown", () => cursor.classList.add("click"));
+document.addEventListener("mouseup", () => cursor.classList.remove("click"));
+
+const soundToggle = $("#soundToggle");
+let isMuted = false,
+  audioContext;
+function initAudio() {
+  if (!audioContext)
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === "suspended") audioContext.resume();
+}
+["pointerdown", "touchstart", "keydown", "click"].forEach((evt) =>
+  window.addEventListener(evt, initAudio, { capture: true, passive: true }),
+);
+function playSound(type) {
+  if (isMuted) return;
+  initAudio();
+  if (!audioContext) return;
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  if (type === "hover") {
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.01, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + 0.05,
+    );
+  } else {
+    osc.frequency.value = 440;
+    gain.gain.setValueAtTime(0.02, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + 0.1,
+    );
+  }
+  osc.start(audioContext.currentTime);
+  osc.stop(audioContext.currentTime + 0.1);
+}
+soundToggle.addEventListener("click", () => {
+  if (!audioContext) initAudio();
+  isMuted = !isMuted;
+  soundToggle.classList.toggle("muted");
+  soundToggle.classList.add("ripple");
+  setTimeout(() => soundToggle.classList.remove("ripple"), 500);
+});
+$$("[data-sound]").forEach((el) => {
+  el.addEventListener("mouseenter", () => playSound(el.dataset.sound));
+  el.addEventListener("click", () => playSound("click"));
+});
+
+const navLinks = $$(".nav-link");
+const sectionMap = [
+  { id: "about", link: document.querySelector('.nav-link[href="#about"]') },
+  {
+    id: "showcase",
+    link: document.querySelector('.nav-link[href="#showcase"]'),
+  },
+  { id: "profile", link: document.querySelector('.nav-link[href="#profile"]') },
+  {
+    id: "contactSection",
+    link: document.querySelector('.nav-link[href="#contactSection"]'),
+  },
+];
+const scrollSpy = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        navLinks.forEach((l) => l.classList.remove("active"));
+        const match = sectionMap.find((s) => s.id === entry.target.id);
+        if (match && match.link) match.link.classList.add("active");
+      }
+    });
+  },
+  { threshold: 0.15, rootMargin: "-80px 0px -45% 0px" },
+);
+sectionMap.forEach((s) => {
+  const el = document.getElementById(s.id);
+  if (el) scrollSpy.observe(el);
+});
+navLinks.forEach((link) => {
+  link.addEventListener("click", (e) => {
+    navLinks.forEach((l) => l.classList.remove("active"));
+    link.classList.add("active");
+  });
+});
+
+const galleryItems = $$(".gallery-item");
+const lightboxOverlay = $("#lightboxOverlay");
+const lightboxImg = $("#lightboxImg");
+const lightboxSite = $("#lightboxSite");
+const lightboxCounter = $("#lightboxCounter");
+const lightboxClose = $("#lightboxClose");
+const lightboxPrev = $("#lightboxPrev");
+const lightboxNext = $("#lightboxNext");
+const modalClose = $("#modalClose");
+
+let lightboxMode = "gallery";
+let currentImageIndex = 0;
+let modalGalleryImages = [];
+let modalGalleryIndex = 0;
+
+galleryItems.forEach((item, i) => {
+  item.addEventListener("click", () => {
+    lightboxMode = "gallery";
+    currentImageIndex = i;
+    updateLightbox();
+    showLightboxArrows(true);
+    if (modalClose) modalClose.style.visibility = "";
+    lightboxOverlay.classList.add("active");
+  });
+});
+
+function updateLightbox() {
+  if (lightboxMode === "gallery") {
+    const img = galleryItems[currentImageIndex].querySelector("img");
+    lightboxImg.src = img.src;
+    lightboxImg.alt = img.alt || "";
+    lightboxSite.hidden = true;
+    lightboxCounter.textContent = `${String(currentImageIndex + 1).padStart(2, "0")} / ${String(galleryItems.length).padStart(2, "0")}`;
+  } else {
+    const current = modalGalleryImages[modalGalleryIndex];
+    lightboxImg.src = current.img;
+    lightboxImg.alt = current.name || "";
+    lightboxSite.hidden = !current.site;
+    if (current.site) lightboxSite.href = current.site;
+    lightboxCounter.textContent = `${String(modalGalleryIndex + 1).padStart(2, "0")} / ${String(modalGalleryImages.length).padStart(2, "0")}`;
+  }
+}
+
+function showLightboxArrows(show) {
+  const method = show ? "remove" : "add";
+  lightboxPrev.classList[method]("hidden-nav");
+  lightboxNext.classList[method]("hidden-nav");
+}
+
+function openModalGalleryLightbox(images, startIndex) {
+  lightboxMode = images.length > 1 ? "modal-gallery" : "standalone";
+  modalGalleryImages = images;
+  modalGalleryIndex = startIndex;
+  updateLightbox();
+  showLightboxArrows(images.length > 1);
+  if (modalClose) modalClose.style.visibility = "";
+  lightboxOverlay.classList.add("active");
+}
+
+function closeLightbox() {
+  lightboxOverlay.classList.remove("active");
+  if (modalClose) modalClose.style.visibility = "";
+}
+
+lightboxClose.addEventListener("click", (e) => {
+  e.stopPropagation();
+  closeLightbox();
+});
+lightboxOverlay.addEventListener("click", (e) => {
+  if (e.target === lightboxOverlay) closeLightbox();
+});
+document.addEventListener("keydown", (e) => {
+  if (!lightboxOverlay.classList.contains("active")) return;
+  if (e.key === "Escape") closeLightbox();
+  if (lightboxMode === "gallery" || lightboxMode === "modal-gallery") {
+    if (e.key === "ArrowLeft") lightboxPrev.click();
+    if (e.key === "ArrowRight") lightboxNext.click();
+  }
+});
+lightboxPrev.addEventListener("click", () => {
+  if (lightboxMode === "gallery") {
+    currentImageIndex =
+      (currentImageIndex - 1 + galleryItems.length) % galleryItems.length;
+  } else if (lightboxMode === "modal-gallery") {
+    modalGalleryIndex =
+      (modalGalleryIndex - 1 + modalGalleryImages.length) %
+      modalGalleryImages.length;
+  }
+  updateLightbox();
+});
+lightboxNext.addEventListener("click", () => {
+  if (lightboxMode === "gallery") {
+    currentImageIndex = (currentImageIndex + 1) % galleryItems.length;
+  } else if (lightboxMode === "modal-gallery") {
+    modalGalleryIndex = (modalGalleryIndex + 1) % modalGalleryImages.length;
+  }
+  updateLightbox();
+});
+
+const folderData = {
+  skills: {
+    layout: "skills",
+    name: "Skills",
+    soon: "More skills coming soon...",
+    files: 8,
+    projects: [
+      {
+        name: "WEB DEVELOPMENT",
+        art: "web",
+        icon: "globe",
+        desc: "Front-end web apps such as Bouquet Builder, Pomodoro, TTPD Storytelling, the COMSOC PCUD site and the Cavite Rush 3D game.",
+        tag: "HTML · CSS · JavaScript",
+        info: true,
+      },
+      {
+        name: "PROGRAMMING",
+        art: "code",
+        icon: "code",
+        desc: "Python and Java alongside the web stack, used for logic building and turning ideas into working programs.",
+        tag: "Python · Java",
+        info: true,
+      },
+      {
+        name: "DATABASES",
+        art: "db",
+        icon: "database",
+        desc: "Storing, structuring and querying data with MySQL.",
+        tag: "MySQL",
+        info: true,
+      },
+      {
+        name: "INTERACTIVE MEDIA",
+        art: "media",
+        icon: "sparkles",
+        desc: "TouchDesigner pieces like Blooming Interactive Flower and Wispy Particles that react in real time.",
+        tag: "TouchDesigner",
+        info: true,
+      },
+      {
+        name: "COMPUTER VISION",
+        art: "vision",
+        icon: "hand",
+        desc: "Hand landmark detection and skeletal visualization, shown in the Finger Tracking project.",
+        tag: "Hand Tracking",
+        info: true,
+      },
+      {
+        name: "VERSION CONTROL",
+        art: "git",
+        icon: "git-branch",
+        desc: "Git and GitHub, with projects hosted on GitHub Pages and Vercel.",
+        tag: "Git · GitHub",
+        info: true,
+      },
+      {
+        name: "SYSTEMS & CLOUD",
+        art: "cloud",
+        icon: "server",
+        desc: "Ubuntu running on Oracle VM VirtualBox, plus a working grasp of cloud computing and networking.",
+        tag: "Linux · Cloud",
+        info: true,
+      },
+      {
+        name: "PROBLEM SOLVING",
+        art: "puzzle",
+        icon: "puzzle",
+        desc: "Debugging, logic building and turning ideas into working projects.",
+        tag: "Mindset",
+        info: true,
+      },
+    ],
+  },
+  journey: {
+    layout: "journey",
+    name: "Journey",
+    soon: "More chapters coming soon...",
+    files: 4,
+    projects: [
+      {
+        name: "EDUCATION",
+        art: "education",
+        icon: "graduation-cap",
+        desc: "Bachelor of Science in Information Technology, BSIT 3B, 3rd Year 1st Semester at Philippine Christian University – Dasmariñas.",
+        tag: "BSIT 3B",
+        info: true,
+      },
+      {
+        name: "WORKING STUDENT",
+        art: "work",
+        icon: "briefcase",
+        desc: "Balancing a job with full-time BSIT studies and learning to manage time well.",
+        tag: "Time Management",
+        info: true,
+      },
+      {
+        name: "BUILDING THINGS",
+        art: "build",
+        icon: "hammer",
+        desc: "Six live web projects and a growing set of interactive pieces, all built by turning ideas into something people can open and use.",
+        tag: "Projects",
+        info: true,
+      },
+      {
+        name: "LEADERSHIP",
+        art: "lead",
+        icon: "users",
+        desc: "A passion for leading teams, taking initiative and helping a group move forward.",
+        tag: "Initiative",
+        info: true,
+      },
+    ],
+  },
+  growth: {
+    layout: "growth",
+    name: "Growth",
+    soon: "More goals coming soon...",
+    files: 4,
+    projects: [
+      {
+        name: "AD EMENDATIONEM",
+        art: "infinity",
+        icon: "infinity",
+        desc: "Latin for “to always improve”, the favorite motto behind every project: build, learn, then make it better.",
+        tag: "Motto",
+        info: true,
+      },
+      {
+        name: "GOALS",
+        art: "goal",
+        icon: "target",
+        desc: "To grow as a developer and as a leader, one project at a time.",
+        tag: "Direction",
+        info: true,
+      },
+      {
+        name: "CONTINUOUS LEARNING",
+        art: "learn",
+        icon: "book-open",
+        desc: "Picking up new tools and technologies and putting them straight into practice.",
+        tag: "Habit",
+        info: true,
+      },
+      {
+        name: "HOBBIES",
+        art: "hobby",
+        icon: "heart",
+        desc: "Developing new things and learning new technologies.",
+        tag: "Interests",
+        info: true,
+      },
+    ],
+  },
+  projects: {
+    name: "Projects",
+    soon: "More projects coming soon...",
+    files: 9,
+    projects: [
+      {
+        name: "BLOOMING INTERACTIVE FLOWER",
+        desc: "TouchDesigner / generative flower that blooms through hand interaction.",
+        img: "https://drive.google.com/thumbnail?id=18jhfNMeuhyleGUlN_bqmGNjDkcHMwjZ_&sz=w1000",
+        tag: "TouchDesigner",
+        live: false,
+      },
+      {
+        name: "WISPY PARTICLES",
+        desc: "TouchDesigner / flowing particle system playing in real time.",
+        img: "https://drive.google.com/thumbnail?id=1jyeOr9mEq_lw6DMx7TcLPpmh1fn9G99h&sz=w1000",
+        tag: "TouchDesigner",
+        live: false,
+      },
+      {
+        name: "FINGER TRACKING",
+        desc: "Computer vision / hand landmark detection and skeletal visualization.",
+        img: "https://drive.google.com/thumbnail?id=1jU7oDp2Q497vkYnbfcEZG9NizZuJDR2p&sz=w1000",
+        tag: "Computer Vision",
+        live: false,
+      },
+      {
+        name: "BOUQUET BUILDER",
+        desc: "Web app / build a custom bouquet by picking flowers, wrap, ribbon and a handwritten note, then send it.",
+        img: "images/bouquet-builder.png",
+        tag: "Web App",
+        live: true,
+        link: "https://arrilrj.github.io/boquet-builder/",
+      },
+      {
+        name: "POMODORO",
+        desc: "Web app / focus timer with session tracking, streak counter, and break management.",
+        img: "https://drive.google.com/thumbnail?id=1AF634MPS43E_RIQ_67bzOJtfeOxr_1_F&sz=w1000",
+        tag: "Web App",
+        live: true,
+        link: "https://arrilrj.github.io/pomodoro/",
+      },
+      {
+        name: "TTPD STORYTELLING",
+        desc: "Web project / interactive storytelling experience with dynamic visuals and narrative flow.",
+        img: "https://drive.google.com/thumbnail?id=1CN1qSjIygaJ4k6Y_JteGwjJQPvkhR0ZC&sz=w1000",
+        tag: "Web App",
+        live: true,
+        link: "https://arrilrj.github.io/TTPD-storytelling/",
+      },
+      {
+        name: "COMSOC PCUD",
+        desc: "Web project / a community website for COMSOC PCUD with events, announcements, transparency reports and officer profiles.",
+        img: "https://drive.google.com/thumbnail?id=1WLihNYSpx7HaXYn5NKE1PMTSn6vv1BUQ&sz=w1920",
+        tag: "Web App",
+        live: true,
+        link: "https://coinnect.infinityfreeapp.com/",
+        external: true,
+      },
+      {
+        name: "CAVITE RUSH",
+        desc: "Web game / a 3D first-person motorcycle booking game set in Cavite, with pickups, drop-offs, a live map, garage upgrades and a photo mode.",
+        img: "images/cavite-rush.jpg",
+        tag: "Web App",
+        live: true,
+        link: "https://cavite-rush.vercel.app/",
+        external: true,
+      },
+      {
+        name: "CET LABORATORY INVENTORY",
+        desc: "Web system / lets CET students check available equipment, request items and track every borrowing and return in the laboratories.",
+        img: "images/cet-inventory.png",
+        tag: "Web App",
+        live: true,
+        link: "https://cet-inventory.site.je/",
+        external: true,
+      },
+    ],
+  },
+};
+
+const modalOverlay = $("#modalOverlay");
+const modalBody = $("#modalBody");
+
+$$(".folder-item").forEach((item) => {
+  const folderKey = item.dataset.folder;
+  const data = folderData[folderKey];
+
+  const folderArt = document.createElement("div");
+  folderArt.className = "folder-art";
+  folderArt.innerHTML = CARD_ART[FOLDER_ART[folderKey]];
+  item.querySelector(".folder-right").prepend(folderArt);
+
+  item.addEventListener("mouseenter", () => {
+    const fileWord = data.files === 1 ? "file" : "files";
+    $("#previewName").textContent = data.name;
+    $("#previewFiles").textContent = `${data.files} ${fileWord} compiled`;
+    $("#previewPanel").classList.add("active");
+  });
+  item.addEventListener("mouseleave", () =>
+    $("#previewPanel").classList.remove("active"),
+  );
+
+  item.addEventListener("click", () => {
+    let html = `<div class="modal-header"><div><div class="modal-folder-name">${data.name}</div><div class="modal-meta">Folder 0${Object.keys(folderData).indexOf(folderKey) + 1} — BSIT 3B</div></div></div>`;
+
+    if (data.projects.length > 0) {
+      const singleClass =
+        data.projects.length === 1 ? " modal-projects-single" : "";
+      html += `<div class="modal-projects${singleClass}${data.layout ? " layout-" + data.layout : ""}">`;
+      let lightboxCounter = -1;
+      data.projects.forEach((p, pi) => {
+        if (p.info) {
+          html += `<div class="modal-info-card" data-step="${String(pi + 1).padStart(2, "0")}"><div class="modal-info-art ca-art">${CARD_ART[p.art] || ""}<div class="modal-info-icon"><i data-lucide="${p.icon}"></i></div></div><div class="modal-info-tag">${p.tag}</div><div class="modal-info-name">${p.name}</div><div class="modal-info-desc">${p.desc}</div></div>`;
+          return;
+        }
+        const isClickable = p.live || p.pdf || p.lightbox;
+        const liveBadge = p.live
+          ? '<div class="modal-project-live"><span class="live-dot"></span>Live</div>'
+          : "";
+        const pdfBadge = p.pdf
+          ? '<div class="modal-project-pdf-badge"><i data-lucide="file-text"></i> PDF</div>'
+          : "";
+        const arrow = isClickable
+          ? '<div class="modal-project-arrow"><i data-lucide="arrow-up-right"></i></div>'
+          : "";
+        let link, target;
+        if (p.lightbox) {
+          lightboxCounter++;
+          link = "#";
+          target = `data-lightbox-index="${lightboxCounter}"`;
+        } else if (p.live || p.pdf) {
+          link = p.link;
+          target = `target="_blank" rel="noopener noreferrer" data-preview="${p.name}"`;
+        } else {
+          link = "#";
+          target = 'onclick="return false;" style="cursor: default;"';
+        }
+        let visualHtml;
+        if (!p.img) {
+          visualHtml = `<div class="modal-project-pdf-placeholder"><div class="modal-project-pdf-icon"><i data-lucide="globe"></i></div><div class="modal-project-pdf-label">Live Website</div></div>`;
+        } else if (p.pdf && !p.img) {
+          visualHtml = `<div class="modal-project-pdf-placeholder"><div class="modal-project-pdf-icon"><i data-lucide="file-text"></i></div><div class="modal-project-pdf-label">PDF Document</div></div>`;
+        } else {
+          visualHtml = `<img src="${p.img}" class="modal-project-img" alt="${p.name}" loading="lazy" onerror="this.closest('.modal-project').classList.add('img-fail')">`;
+        }
+        html += `<a href="${link}" class="modal-project" ${target} data-hover data-sound="click">${visualHtml}<div class="modal-project-overlay"><div class="modal-project-tag">${p.tag}</div><div class="modal-project-name">${p.name}</div><div class="modal-project-desc">${p.desc}</div></div>${arrow}${liveBadge}${pdfBadge}</a>`;
+      });
+      html += `</div><div class="modal-soon"><div class="modal-soon-dot"></div><div class="modal-soon-text">${data.soon}</div></div>`;
+    } else {
+      html += `<div class="modal-empty"><div class="modal-status-box"><div class="modal-status-dot"></div><div class="modal-status-text">No files uploaded yet. Content will be added as the semester progresses.</div></div><div class="modal-slots"><div class="modal-slot">+</div><div class="modal-slot">+</div><div class="modal-slot">+</div></div><div class="modal-hint">This folder is currently empty. Check back later for updates regarding ${data.name}.</div></div>`;
+    }
+
+    modalBody.innerHTML = html;
+    modalOverlay.classList.add("active");
+    lucide.createIcons();
+
+    const lightboxProjects = data.projects
+      .filter((p) => p.lightbox)
+      .map((p) => ({ img: p.img, name: p.name, site: p.site }));
+    modalBody.querySelectorAll("[data-lightbox-index]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const idx = parseInt(el.dataset.lightboxIndex, 10);
+        openModalGalleryLightbox(lightboxProjects, idx);
+      });
+    });
+  });
+});
+
+modalClose.addEventListener("click", () =>
+  modalOverlay.classList.remove("active"),
+);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) modalOverlay.classList.remove("active");
+});
+
+const scrambleChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+$$("[data-scramble]").forEach((el) => {
+  const originalText = el.textContent;
+  let interval = null;
+  el.addEventListener("mouseenter", () => {
+    let iteration = 0;
+    clearInterval(interval);
+    interval = setInterval(() => {
+      el.textContent = originalText
+        .split("")
+        .map((letter, idx) => {
+          if (idx < iteration) return originalText[idx];
+          if (letter === " ") return " ";
+          return scrambleChars[
+            Math.floor(Math.random() * scrambleChars.length)
+          ];
+        })
+        .join("");
+      if (iteration >= originalText.length) clearInterval(interval);
+      iteration += 1 / 3;
+    }, 40);
+  });
+});
+
+const revealObserver = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) entry.target.classList.add("visible");
+    });
+  },
+  { threshold: 0.1 },
+);
+$$(".reveal").forEach((el) => revealObserver.observe(el));
+
+const toast = $("#toast");
+$$(".contact-copy-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    navigator.clipboard.writeText(btn.dataset.copy).then(() => {
+      btn.classList.add("copied");
+      toast.textContent = `Copied: ${btn.dataset.copy}`;
+      toast.classList.add("show");
+      setTimeout(() => {
+        btn.classList.remove("copied");
+        toast.classList.remove("show");
+      }, 2000);
+    });
+  });
+});
+
+const heroDecorCircle = $(".hero-decor-circle");
+const heroDecorRect = $(".hero-decor-rect");
+$("#about").addEventListener("mousemove", (e) => {
+  const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+  const x = (e.clientX - left) / width - 0.5;
+  const y = (e.clientY - top) / height - 0.5;
+  heroDecorCircle.style.transform = `translate(${x * 30}px,${y * 30}px)`;
+  heroDecorRect.style.transform = `translate(${x * -20}px,${y * -20}px)`;
+});
+
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+const THEMES = {
+  rose: ["#f8f4f6", "#221a2b"],
+  ocean: ["#f3f7fa", "#14212c"],
+  mint: ["#f3f8f4", "#15241b"],
+  sunset: ["#fbf5ef", "#2a1e17"],
+  lavender: ["#f6f4fb", "#1e1a33"],
+};
+let currentPalette = "rose";
+function applyTheme(dark) {
+  document.body.classList.toggle("inverted", dark);
+  if (themeMeta) themeMeta.content = THEMES[currentPalette][dark ? 1 : 0];
+}
+function applyPalette(name) {
+  if (!THEMES[name]) name = "rose";
+  currentPalette = name;
+  Object.keys(THEMES).forEach((k) =>
+    document.body.classList.toggle("theme-" + k, k === name),
+  );
+  $$(".theme-swatch").forEach((b) =>
+    b.classList.toggle("active", b.dataset.theme === name),
+  );
+  applyTheme(document.body.classList.contains("inverted"));
+}
+let savedTheme = null,
+  savedPalette = null;
+try {
+  savedTheme = localStorage.getItem("theme");
+  savedPalette = localStorage.getItem("palette");
+} catch (e) {}
+document.body.classList.toggle(
+  "inverted",
+  savedTheme
+    ? savedTheme === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches,
+);
+applyPalette(savedPalette);
+$("#invertBtn").addEventListener("click", () => {
+  const dark = !document.body.classList.contains("inverted");
+  applyTheme(dark);
+  try {
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  } catch (e) {}
+});
+const themeBtn = $("#themeBtn"),
+  themeMenu = $("#themeMenu");
+function setThemeMenu(open) {
+  themeMenu.classList.toggle("open", open);
+  themeBtn.setAttribute("aria-expanded", open);
+}
+themeBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setThemeMenu(!themeMenu.classList.contains("open"));
+});
+themeMenu.addEventListener("click", (e) => {
+  const sw = e.target.closest(".theme-swatch");
+  if (!sw) return;
+  applyPalette(sw.dataset.theme);
+  try {
+    localStorage.setItem("palette", sw.dataset.theme);
+  } catch (e) {}
+  setThemeMenu(false);
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#themePicker")) setThemeMenu(false);
+});
+
+const menuBtn = $("#menuBtn"),
+  mobileMenu = $("#mobileMenu");
+function setMenu(open) {
+  mobileMenu.classList.toggle("open", open);
+  menuBtn.setAttribute("aria-expanded", open);
+  menuBtn.innerHTML = `<i data-lucide="${open ? "x" : "menu"}"></i>`;
+  lucide.createIcons();
+}
+menuBtn.addEventListener("click", () =>
+  setMenu(!mobileMenu.classList.contains("open")),
+);
+$$("a", mobileMenu).forEach((a) =>
+  a.addEventListener("click", () => setMenu(false)),
+);
+
+$$(".folder-item").forEach((it) => {
+  it.tabIndex = 0;
+  it.setAttribute("role", "button");
+  it.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      it.click();
+    }
+  });
+});
+
+const pvOverlay = $("#previewOverlay"),
+  pvFrame = $("#pvFrame"),
+  pvStage = $("#pvStage"),
+  pvLoading = $("#pvLoading");
+let pvUrl = "";
+function openPreview(name) {
+  const p = Object.values(folderData)
+    .flatMap((f) => f.projects)
+    .find((x) => x.name === name);
+  if (!p) return;
+  if (p.external) {
+    window.open(p.link, "_blank", "noopener");
+    return;
+  }
+  pvUrl = p.link;
+  $("#pvTitle").textContent = p.name;
+  $("#pvOpen").href = p.link;
+  pvStage.classList.remove("mobile");
+  pvLoading.hidden = false;
+  pvFrame.src = p.link;
+  pvOverlay.classList.add("active");
+}
+function closePreview() {
+  pvOverlay.classList.remove("active");
+  pvFrame.src = "about:blank";
+}
+pvFrame.addEventListener("load", () => (pvLoading.hidden = true));
+$("#pvClose").addEventListener("click", closePreview);
+$("#pvReload").addEventListener("click", () => {
+  pvLoading.hidden = false;
+  pvFrame.src = pvUrl;
+});
+$("#pvDesktop").addEventListener("click", () =>
+  pvStage.classList.remove("mobile"),
+);
+$("#pvMobile").addEventListener("click", () => pvStage.classList.add("mobile"));
+modalBody.addEventListener("click", (e) => {
+  const a = e.target.closest("[data-preview]");
+  if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  e.preventDefault();
+  openPreview(a.dataset.preview);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || lightboxOverlay.classList.contains("active"))
+    return;
+  if (palette.classList.contains("active")) closePalette();
+  else if (chat.classList.contains("open")) setChat(false);
+  else if (pvOverlay.classList.contains("active")) closePreview();
+  else if (modalOverlay.classList.contains("active"))
+    modalOverlay.classList.remove("active");
+  else if (themeMenu.classList.contains("open")) setThemeMenu(false);
+  else setMenu(false);
+});
+const palette = $("#palette");
+const layers = [modalOverlay, pvOverlay, lightboxOverlay, palette];
+const lockScroll = () => {
+  document.body.style.overflow = layers.some((o) =>
+    o.classList.contains("active"),
+  )
+    ? "hidden"
+    : "";
+};
+layers.forEach((o) =>
+  new MutationObserver(lockScroll).observe(o, {
+    attributes: true,
+    attributeFilter: ["class"],
+  }),
+);
+
+const allProjects = Object.values(folderData).flatMap((f) => f.projects);
+const chipsEl = $("#chips"),
+  gridEl = $("#showcaseGrid");
+// Only these show in "Featured Projects" (the Projects folder still holds all of them)
+const FEATURED_NAMES = [
+  "BLOOMING INTERACTIVE FLOWER",
+  "TTPD STORYTELLING",
+  "CAVITE RUSH",
+];
+const featured = FEATURED_NAMES.map((n) =>
+  folderData.projects.projects.find((p) => p.name === n),
+).filter(Boolean);
+let activeChip = "All";
+
+function renderShowcase() {
+  const list =
+    activeChip === "All"
+      ? featured
+      : featured.filter((p) => p.tag === activeChip);
+  $("#showcaseCount").textContent =
+    `${String(list.length).padStart(2, "0")} projects`;
+  gridEl.innerHTML = list
+    .map(
+      (
+        p,
+      ) => `<button class="sc-card" data-name="${p.name}" data-hover data-sound="hover">
+        <span class="sc-img"><img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.closest('.sc-card').classList.add('img-fail')" />${p.live ? '<span class="sc-live"><span class="live-dot"></span>Live</span>' : ""}</span>
+        <span class="sc-body"><span class="sc-tag">${p.tag}</span><span class="sc-name">${p.name}</span><span class="sc-desc">${p.desc}</span>
+        <span class="sc-cta">${p.external ? "Visit site" : p.live ? "Open preview" : "View image"}<i data-lucide="arrow-up-right"></i></span></span></button>`,
+    )
+    .join("");
+  lucide.createIcons();
+}
+const tags = ["All", ...new Set(featured.map((p) => p.tag))];
+chipsEl.innerHTML = tags
+  .map(
+    (t) =>
+      `<button class="chip${t === "All" ? " active" : ""}" data-tag="${t}" data-hover>${t}</button>`,
+  )
+  .join("");
+chipsEl.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  activeChip = chip.dataset.tag;
+  $$(".chip", chipsEl).forEach((c) => c.classList.toggle("active", c === chip));
+  renderShowcase();
+});
+gridEl.addEventListener("click", (e) => {
+  const card = e.target.closest(".sc-card");
+  if (!card) return;
+  const p = featured.find((x) => x.name === card.dataset.name);
+  if (p.live && !p.lightbox) openPreview(p.name);
+  else
+    openModalGalleryLightbox([{ img: p.img, name: p.name, site: p.site }], 0);
+});
+renderShowcase();
+
+$("#contactForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const subject = encodeURIComponent(`Portfolio message from ${f.get("name")}`);
+  const body = encodeURIComponent(
+    `${f.get("message")}\n\nFrom: ${f.get("name")} (${f.get("email")})`,
+  );
+  location.href = `mailto:arocarlos@pcu.edu.ph?subject=${subject}&body=${body}`;
+  toast.textContent = "Opening your email app…";
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2200);
+  e.target.reset();
+});
+
+let touchX = 0;
+lightboxOverlay.addEventListener(
+  "touchstart",
+  (e) => (touchX = e.changedTouches[0].clientX),
+  { passive: true },
+);
+lightboxOverlay.addEventListener("touchend", (e) => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) (dx > 0 ? lightboxPrev : lightboxNext).click();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (
+    e.key.toLowerCase() === "t" &&
+    !e.target.closest("input, textarea") &&
+    !e.ctrlKey &&
+    !e.metaKey
+  )
+    $("#invertBtn").click();
+});
+
+const palInput = $("#palInput"),
+  palList = $("#palList");
+const palItems = Object.entries(folderData).flatMap(([k, f]) =>
+  f.projects.map((p) => ({ k, f, p })),
+);
+let palMatches = [],
+  palIndex = 0;
+function renderPalette() {
+  const q = palInput.value.trim().toLowerCase();
+  palMatches = palItems.filter(
+    ({ f, p }) =>
+      !q || `${p.name} ${p.tag} ${p.desc} ${f.name}`.toLowerCase().includes(q),
+  );
+  palIndex = 0;
+  palList.innerHTML = palMatches.length
+    ? palMatches
+        .map(
+          ({ f, p }, i) =>
+            `<li role="option" data-i="${i}" class="${i ? "" : "sel"}"><span class="pal-name">${p.name}</span><span class="pal-meta">${f.name} · ${p.tag}</span></li>`,
+        )
+        .join("")
+    : '<li class="pal-empty">No matches. Try “skills”, “goals” or “web”.</li>';
+}
+function markPal(i) {
+  const els = $$("li[data-i]", palList);
+  if (!els.length) return;
+  palIndex = (i + els.length) % els.length;
+  els.forEach((el, n) => el.classList.toggle("sel", n === palIndex));
+  els[palIndex].scrollIntoView({ block: "nearest" });
+}
+function openPalette() {
+  palette.classList.add("active");
+  palInput.value = "";
+  renderPalette();
+  setTimeout(() => palInput.focus(), 50);
+}
+function closePalette() {
+  palette.classList.remove("active");
+}
+function choosePal(m) {
+  if (!m) return;
+  closePalette();
+  const { k, p } = m;
+  if (p.lightbox) {
+    const list = folderData[k].projects.filter((x) => x.lightbox);
+    openModalGalleryLightbox(
+      list.map((x) => ({ img: x.img, name: x.name, site: x.site })),
+      list.indexOf(p),
+    );
+  } else if (p.link) openPreview(p.name);
+  else $(`.folder-item[data-folder="${k}"]`).click();
+}
+palInput.addEventListener("input", renderPalette);
+palInput.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    markPal(palIndex + 1);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    markPal(palIndex - 1);
+  } else if (e.key === "Enter") choosePal(palMatches[palIndex]);
+});
+palList.addEventListener("click", (e) => {
+  const li = e.target.closest("li[data-i]");
+  if (li) choosePal(palMatches[+li.dataset.i]);
+});
+palette.addEventListener("click", (e) => {
+  if (e.target === palette) closePalette();
+});
+document.addEventListener("keydown", (e) => {
+  const typing = /INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    openPalette();
+  } else if (e.key === "/" && !typing) {
+    e.preventDefault();
+    openPalette();
+  }
+});
+
+const chat = $("#chat"),
+  chatBtn = $("#chatBtn"),
+  chatLog = $("#chatLog"),
+  chatInput = $("#chatInput"),
+  chatChips = $("#chatChips"),
+  eliBubble = $("#eliBubble");
+
+const ELI = `<svg class="eli-svg" viewBox="0 0 64 64" aria-hidden="true">
+<line x1="32" y1="10" x2="32" y2="17" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>
+<circle class="eli-bulb" cx="32" cy="7.5" r="3.8" fill="#ff9fbd" stroke="var(--text)" stroke-width="2.4"/>
+<rect x="4.5" y="26" width="7" height="11" rx="3.5" fill="#c88ea8" stroke="var(--text)" stroke-width="2.4"/>
+<rect x="52.5" y="26" width="7" height="11" rx="3.5" fill="#c88ea8" stroke="var(--text)" stroke-width="2.4"/>
+<rect x="18" y="46" width="28" height="14" rx="7" fill="#fff" stroke="var(--text)" stroke-width="3"/>
+<circle cx="32" cy="53" r="2.8" fill="#f4739b"/>
+<ellipse cx="13.5" cy="53.5" rx="4.5" ry="3.3" fill="#fff" stroke="var(--text)" stroke-width="2.4"/>
+<ellipse class="eli-arm eli-arm-r" cx="50.5" cy="53.5" rx="4.5" ry="3.3" fill="#fff" stroke="var(--text)" stroke-width="2.4"/>
+<rect x="9.5" y="16" width="45" height="31" rx="13" fill="#fff" stroke="var(--text)" stroke-width="3"/>
+<rect x="14.5" y="21" width="35" height="21" rx="9" fill="#2a1f35"/>
+<g class="eli-eyes"><ellipse class="eli-eye" cx="25" cy="31" rx="3.3" ry="4.2" fill="#ffd1e1"/><ellipse class="eli-eye" cx="39" cy="31" rx="3.3" ry="4.2" fill="#ffd1e1"/><circle cx="26" cy="29.6" r="1.2" fill="#fff"/><circle cx="40" cy="29.6" r="1.2" fill="#fff"/></g>
+<path d="M28.5 36.5q3.5 3.4 7 0" fill="none" stroke="#ffd1e1" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="19.5" cy="36.5" r="2.2" fill="#ff9fbd" opacity=".75"/>
+<circle cx="44.5" cy="36.5" r="2.2" fill="#ff9fbd" opacity=".75"/>
+</svg>`;
+$$("[data-eli]").forEach((el) => (el.innerHTML = ELI));
+function eliReact(mood, ms = 800) {
+  const targets = [chatBtn, $(".chat-avatar")];
+  targets.forEach((t) => t.classList.add(mood));
+  setTimeout(() => targets.forEach((t) => t.classList.remove(mood)), ms);
+}
+
+const PROFILE = {
+  name: "Arril Ricajane O. Carlos",
+  short: "Arril",
+  course: "Bachelor of Science in Information Technology",
+  section: "BSIT 3B",
+  year: "3rd Year, 1st Semester",
+  school: "Philippine Christian University – Dasmariñas (PCU-D)",
+  emails: { pcu: "arocarlos@pcu.edu.ph", personal: "arrilrj.carlos@gmail.com" },
+  motto: "Ad emendationem",
+  mottoMeaning: "to always improve",
+  skills: {
+    Databases: "MySQL for storing and querying data",
+    "Web development":
+      "front-end web apps such as Bouquet Builder, Pomodoro, TTPD Storytelling, the COMSOC PCUD site and the Cavite Rush 3D game",
+    "Interactive media":
+      "TouchDesigner pieces like Blooming Interactive Flower and Wispy Particles",
+    "Computer vision":
+      "hand landmark detection and skeletal visualization (Finger Tracking)",
+    "Virtualization & Linux": "Ubuntu running on Oracle VM VirtualBox",
+    "Networking & cloud": "cloud computing and networking fundamentals",
+    "Version control":
+      "Git and GitHub, with projects hosted on GitHub Pages and Vercel",
+    "Problem solving":
+      "debugging, logic building and turning ideas into working projects",
+    Leadership: "a passion for leading teams and taking initiative",
+    "Time management":
+      "balancing a job with full-time BSIT studies as a working student",
+    "Continuous learning":
+      'picking up new tools and technologies, guided by the motto "Ad emendationem"',
+  },
+  hobbies: ["developing new things", "learning new technologies"],
+  goals: [
+    'to always improve ("Ad emendationem")',
+    "to grow as a developer and as a leader",
+  ],
+  funFacts: [
+    "Arril is a working student, balancing a job with BSIT studies.",
+    'Arril\'s favorite motto is "Ad emendationem", Latin for "to always improve".',
+    "Arril has a passion for leading and enjoys building new things.",
+  ],
+  achievements: [
+    "Balancing a job and full-time BSIT studies as a working student",
+  ],
+  languages: ["HTML", "CSS", "JavaScript", "Python", "Java", "MySQL"],
+};
+
+const ctx = {
+  last: null,
+  name: null,
+  misses: 0,
+  tour: 0,
+  tourActive: false,
+  trivia: null,
+};
+try {
+  ctx.name = localStorage.getItem("eliUser");
+} catch (e) {}
+
+const allItems = palItems;
+const BASE_CHIPS = [
+  "About Arril",
+  "Skills",
+  "Projects",
+  "Take a tour",
+  "Quiz me",
+  "Contact",
+];
+const SECTIONS = {
+  about: ["#about", "the intro"],
+  home: ["#about", "the intro"],
+  top: ["#about", "the top"],
+  gallery: [".gallery", "the gallery"],
+  photo: [".gallery", "the gallery"],
+  project: ["#showcase", "the featured projects"],
+  featured: ["#showcase", "the featured projects"],
+  archive: ["#profile", "the personal profile"],
+  profile: ["#profile", "the personal profile"],
+  folder: ["#profile", "the personal profile"],
+  contact: ["#contactSection", "the contact section"],
+  footer: ["footer", "the footer"],
+};
+const jokes = [
+  "Why do programmers prefer dark mode? Because light attracts bugs.",
+  "There are 10 kinds of people: those who understand binary and those who don't.",
+  "A SQL query walks into a bar, sees two tables and asks: can I join you?",
+  "My code worked first try. I'm still suspicious.",
+  "Why was the computer cold? It left its Windows open.",
+  "I would tell you a UDP joke, but you might not get it.",
+];
+const facts = [
+  "Arril balances a job with full-time BSIT studies as a working student.",
+  "The Ubuntu setup runs on Oracle VM VirtualBox.",
+  "The TouchDesigner pieces react to hand tracking in real time.",
+  "Six of the web projects are live online, hosted on Vercel, GitHub Pages and InfinityFree.",
+  "Cavite Rush is a 3D first-person motorcycle booking game set in Cavite.",
+  "This portfolio has a hidden search: press Ctrl+K or the / key.",
+];
+let jokeI = 0,
+  factI = 0;
+
+const ALIAS = {
+  "BLOOMING INTERACTIVE FLOWER": ["flower", "blooming"],
+  "WISPY PARTICLES": ["wispy", "particles"],
+  "FINGER TRACKING": ["finger", "hand tracking", "landmark"],
+  "BOUQUET BUILDER": ["bouquet", "boquet", "bouquet builder"],
+  POMODORO: ["pomodoro", "focus timer", "timer"],
+  "TTPD STORYTELLING": ["ttpd", "storytelling"],
+  "COMSOC PCUD": ["comsoc", "coinnect", "computer society"],
+  "CAVITE RUSH": ["cavite rush", "cavite", "motorcycle", "driving game"],
+  "CET LABORATORY INVENTORY": ["cet laboratory inventory", "cet inventory", "cet", "inventory"],
+  "WEB DEVELOPMENT": ["web development", "front end", "frontend"],
+  "INTERACTIVE MEDIA": ["interactive media"],
+  "COMPUTER VISION": ["computer vision"],
+  "VERSION CONTROL": ["version control", "git", "github"],
+  "SYSTEMS & CLOUD": ["cloud", "ubuntu", "virtualbox", "linux", "networking", "network", "virtual"],
+  "PROBLEM SOLVING": ["problem solving", "debugging"],
+  "CONTINUOUS LEARNING": ["continuous learning", "keep learning"],
+};
+
+const norm = (s) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+function kwHit(q, w) {
+  const e = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const prefix = w.length >= 5 || w.includes(" ");
+  return new RegExp(
+    prefix ? `(^|\\s)${e}` : `(^|\\s)${e}(?:s|es)?(?:\\s|$)`,
+  ).test(q);
+}
+const findItem = (q) =>
+  allItems.find(({ p }) =>
+    [norm(p.name), ...(ALIAS[p.name] || [])].some((a) => kwHit(q, a)),
+  );
+const R = (text, actions = [], chips = [], last = null) => ({
+  text,
+  actions,
+  chips,
+  last,
+});
+const actItem = (it) => ({
+  label: `Open ${it.p.name}`,
+  fn: () => choosePal(it),
+});
+const actFolder = (k) => ({
+  label: `Open ${folderData[k].name}`,
+  fn: () => $(`.folder-item[data-folder="${k}"]`).click(),
+});
+const goTo = (sel) => {
+  const el = document.querySelector(sel);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+const totalFiles = () =>
+  Object.values(folderData).reduce((n, f) => n + f.files, 0);
+const liveItems = () => allItems.filter(({ p }) => p.live);
+const shuffle = (a) => {
+  const b = [...a];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+};
+const copyText = (t) =>
+  navigator.clipboard.writeText(t).then(() => {
+    toast.textContent = `Copied: ${t}`;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2000);
+  });
+const contactActions = () => [
+  {
+    label: "Email PCU mail",
+    fn: () => (location.href = `mailto:${PROFILE.emails.pcu}`),
+  },
+  {
+    label: "Email Gmail",
+    fn: () => (location.href = `mailto:${PROFILE.emails.personal}`),
+  },
+  { label: "Copy personal email", fn: () => copyText(PROFILE.emails.personal) },
+];
+const goContact = { label: "Go to contact", fn: () => goTo("#contactSection") };
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const nm = () => (ctx.name ? ", " + ctx.name : "");
+const closers = [
+  "Anything else you'd like to know?",
+  "Want to dig into something else? 😊",
+  "I'm happy to share more if you're curious!",
+  "Ask me anything, I love questions. ✨",
+  "Feel free to keep exploring!",
+];
+const joinList = (a) =>
+  a.length < 2
+    ? a.join("")
+    : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+
+function projectReply(it) {
+  const { f, p } = it;
+  let host = "";
+  try {
+    if (p.live && p.link) host = ` It's live at ${new URL(p.link).host}.`;
+    else if (p.site) host = ` The site is at ${new URL(p.site).host}.`;
+  } catch (e) {}
+  const type = p.info
+    ? "a card you can read in the folder"
+    : p.pdf
+    ? "a PDF document"
+    : p.lightbox
+      ? "an image you can open full screen"
+      : p.live
+        ? "a live project"
+        : "a showcase piece";
+  const acts = [actItem(it)];
+  if (p.live && p.link)
+    acts.push({
+      label: "Visit site",
+      fn: () => window.open(p.link, "_blank", "noopener"),
+    });
+  acts.push(
+    actFolder(Object.keys(folderData).find((k) => folderData[k] === f)),
+  );
+  return R(
+    `${pick(["Ooh, great pick!", "Nice choice! 😊", "Happy to tell you about this one!", "Good eye!"])} ${p.name} (${p.tag}) lives in the ${f.name} folder. ${p.desc}${host} It opens as ${type}.`,
+    acts,
+    ["More like this", "Projects", "Surprise me"],
+    { item: it },
+  );
+}
+
+function more() {
+  const it = ctx.last && ctx.last.item;
+  if (!it)
+    return R(
+      "Name a topic and I'll go deeper: a project, a skill, the journey or the goals.",
+      [],
+      ["Projects", "Skills", "Journey"],
+    );
+  const rel = allItems
+    .filter((x) => x !== it && (x.f === it.f || x.p.tag === it.p.tag))
+    .slice(0, 3);
+  if (!rel.length)
+    return R(
+      `${it.p.name} stands on its own. Want something else?`,
+      [],
+      BASE_CHIPS,
+    );
+  return R(
+    `If you like ${it.p.name}, you might also enjoy ${rel.map((x) => x.p.name).join(", ")}.`,
+    rel.map(actItem),
+    rel.map((x) => x.p.name),
+    { item: it },
+  );
+}
+
+const TOUR = [
+  {
+    sel: "#about",
+    title: "The intro",
+    text: "Arril's name, course and section, with the profile photo.",
+  },
+  {
+    sel: ".gallery",
+    title: "The gallery",
+    text: "Six photos, from night streets to a bamboo walk. Tap one to open it full screen.",
+  },
+  {
+    sel: "#showcase",
+    title: "Featured projects",
+    text: "Filter by tag, then open live previews or full images.",
+  },
+  {
+    sel: "#profile",
+    title: "Personal profile",
+    text: "Skills, journey, growth and projects. Hover for a preview and click to open a folder.",
+  },
+  {
+    sel: "#contactSection",
+    title: "Contact",
+    text: "Both emails with copy buttons, plus a message form. That's the end of the tour.",
+  },
+];
+function tourStep(i) {
+  const s = TOUR[i];
+  ctx.tour = i;
+  ctx.tourActive = i < TOUR.length - 1;
+  if (innerWidth > 640) goTo(s.sel);
+  const show = {
+    label: "Show me",
+    fn: () => {
+      if (innerWidth <= 640) setChat(false);
+      goTo(s.sel);
+    },
+  };
+  const last = i === TOUR.length - 1;
+  const acts = last
+    ? [
+        show,
+        { label: "Quiz me", fn: () => ask("Quiz me") },
+        { label: "Restart tour", fn: () => speak(tourStep(0)) },
+      ]
+    : [show, { label: "Next stop", fn: () => speak(tourStep(i + 1)) }];
+  return R(
+    `Stop ${i + 1} of ${TOUR.length}: ${s.title}. ${s.text}`,
+    acts,
+    last ? BASE_CHIPS : ["Next", "Stop tour"],
+  );
+}
+
+const BANK = [
+  {
+    q: "Which section is Arril in?",
+    o: ["BSIT 2A", "BSIT 3B", "BSIT 4C"],
+    a: 1,
+  },
+  {
+    q: "Which tool powers the Blooming Flower and Wispy Particles?",
+    o: ["Blender", "Unity", "TouchDesigner"],
+    a: 2,
+  },
+  {
+    q: "Which project is a focus timer with a streak counter?",
+    o: ["Pomodoro", "Bouquet Builder", "TTPD Storytelling"],
+    a: 0,
+  },
+  { q: "How many photos are in the gallery?", o: ["4", "6", "9"], a: 1 },
+  {
+    q: "Which app runs the Ubuntu virtual machine?",
+    o: ["VMware", "Oracle VM VirtualBox", "Hyper-V"],
+    a: 1,
+  },
+  {
+    q: "Which school does Arril attend?",
+    o: [
+      "Philippine Christian University – Dasmariñas",
+      "De La Salle",
+      "UP Diliman",
+    ],
+    a: 0,
+  },
+  {
+    q: "What is Arril's favorite motto?",
+    o: ["Ad astra", "Ad emendationem", "Carpe diem"],
+    a: 1,
+  },
+  {
+    q: "Which of these does Arril know?",
+    o: ["Python and Java", "Swift and Kotlin", "Go and Rust"],
+    a: 0,
+  },
+  {
+    q: "Which database does Arril work with?",
+    o: ["MongoDB", "MySQL", "Oracle"],
+    a: 1,
+  },
+  {
+    q: "Which project is a 3D motorcycle booking game?",
+    o: ["Cavite Rush", "Pomodoro", "Bouquet Builder"],
+    a: 0,
+  },
+  {
+    q: "What does Arril's motto mean?",
+    o: ["To always improve", "To seize the day", "To the stars"],
+    a: 0,
+  },
+  {
+    q: "What kind of project is COMSOC PCUD?",
+    o: ["A community website", "A 3D game", "A focus timer"],
+    a: 0,
+  },
+];
+function triviaQuestion() {
+  const t = ctx.trivia,
+    item = t.qs[t.i];
+  const opts = shuffle(item.o.map((text, n) => ({ text, ok: n === item.a })));
+  const acts = opts.map((o) => ({
+    label: o.text,
+    fn: (e) => {
+      const row = e.currentTarget.parentElement;
+      row.querySelectorAll("button").forEach((b, n) => {
+        b.disabled = true;
+        if (opts[n].ok) b.classList.add("ok");
+      });
+      if (!o.ok) e.currentTarget.classList.add("no");
+      if (o.ok) t.score++;
+      eliReact(o.ok ? "hop" : "think", 700);
+      t.msg = o.ok
+        ? pick(["Correct! 🎉", "Yes, nice one! ✨", "You got it! 👏"])
+        : pick([
+            "Not quite, but good try! 💪",
+            "Close! Now you know for next time. 😊",
+            "Oops! No worries, keep going!",
+          ]);
+      t.i++;
+      setTimeout(
+        () => speak(t.i < t.qs.length ? triviaQuestion() : triviaEnd(), false),
+        650,
+      );
+    },
+  }));
+  const lead = t.msg ? t.msg + " " : "";
+  t.msg = "";
+  return R(`${lead}Question ${t.i + 1} of ${t.qs.length}: ${item.q}`, acts, []);
+}
+function triviaEnd() {
+  const { score, qs, msg } = ctx.trivia;
+  ctx.trivia = null;
+  const verdict =
+    score === qs.length
+      ? "Perfect score! You know this portfolio better than most."
+      : score >= qs.length - 2
+        ? "Nice work, you clearly paid attention."
+        : "Good try! The tour is a great way to pick up the details.";
+  return R(
+    `${msg} You got ${score} out of ${qs.length}. ${verdict}`,
+    [{ label: "Play again", fn: () => ask("Quiz me") }],
+    ["Take a tour", "Projects", "Contact"],
+  );
+}
+
+const INTENTS = [
+  {
+    kw: [
+      "hi",
+      "hello",
+      "hey",
+      "yo",
+      "sup",
+      "kumusta",
+      "good morning",
+      "good afternoon",
+      "good evening",
+      "hiya",
+      "hola",
+    ],
+    run: () =>
+      R(
+        pick([
+          `Hi${nm()}! 👋 So nice to see you here!`,
+          `Hello${nm()}! 😊 Welcome to Arril's portfolio.`,
+          `Hey${nm()}! Great to have you here!`,
+        ]) +
+          " I can tell you about Arril, the projects, skills and journey, take you on a tour, or quiz you. What sounds fun?",
+        [],
+        ["About Arril", "Take a tour", "Quiz me"],
+      ),
+  },
+  {
+    kw: [
+      "how are you",
+      "how r u",
+      "how are u",
+      "hows it going",
+      "how is it going",
+      "you okay",
+      "kamusta ka",
+    ],
+    run: () =>
+      R(
+        pick([
+          "I'm doing great, thanks for asking! 😊 It's always a good day when someone stops by the portfolio.",
+          "Feeling cheerful and fully charged! ⚡ How about you?",
+        ]) + " What would you like to explore?",
+        [],
+        ["About Arril", "Surprise me", "Tell me a joke"],
+      ),
+  },
+  {
+    kw: ["what s up", "whats up", "wassup", "sup"],
+    run: () =>
+      R(
+        `Just hanging out in the portfolio, waiting for a friend to chat with${nm()}! What brings you here?`,
+        [],
+        ["About Arril", "Projects", "Surprise me"],
+      ),
+  },
+  {
+    kw: ["bored", "boring", "nothing to do"],
+    run: () =>
+      R(
+        "Let's fix that! 🎉 I can quiz you, tell a joke, take you on a tour or pick a random project for you.",
+        [],
+        ["Quiz me", "Tell me a joke", "Take a tour", "Surprise me"],
+      ),
+  },
+  {
+    kw: [
+      "tired",
+      "stressed",
+      "stress",
+      "sad",
+      "overwhelmed",
+      "anxious",
+      "burnout",
+      "exhausted",
+      "pagod",
+    ],
+    run: () =>
+      R(
+        `That sounds tough${nm()}, and it's okay to feel that way. 💛 Arril's motto is "${PROFILE.motto}" (${PROFILE.mottoMeaning}), and that includes being kind to yourself. Take a breath, drink some water, and take it one small step at a time. If it feels heavy, talking to someone you trust really helps.`,
+        [],
+        ["Tell me a joke", "Fun fact", "Motto"],
+      ),
+  },
+  {
+    kw: ["good night", "goodnight", "gn", "sleep", "matulog"],
+    run: () =>
+      R(
+        `Good night${nm()}! 🌙 Rest well, and come back anytime.`,
+        [],
+        ["Take a tour", "Contact"],
+      ),
+  },
+  {
+    kw: ["lol", "haha", "hahaha", "hehe", "lmao", "funny"],
+    run: () =>
+      R(
+        pick([
+          "Glad that made you smile! 😄",
+          "Hehe, I try my best! 😄",
+          "Ha! Comedy is my side hobby. 🤖",
+        ]),
+        [],
+        ["Another joke", "Fun fact", "Quiz me"],
+      ),
+  },
+  {
+    kw: ["sorry", "my bad", "oops", "pasensya"],
+    run: () =>
+      R(
+        "No worries at all! 😊 There's no such thing as a wrong question here.",
+        [],
+        BASE_CHIPS,
+      ),
+  },
+  {
+    kw: [
+      "who made you",
+      "who created you",
+      "who built you",
+      "your creator",
+      "who programmed you",
+      "made you",
+    ],
+    run: () =>
+      R(
+        "Arril built me to be the friendly guide of this portfolio! 🤖💛 I'm made with plain JavaScript, and I get a little smarter whenever Arril teaches me something new.",
+        [],
+        ["About Arril", "Skills", "Motto"],
+      ),
+  },
+  {
+    kw: [
+      "love you",
+      "i like you",
+      "you are cute",
+      "you re cute",
+      "so cute",
+      "best bot",
+      "you re the best",
+      "you are the best",
+    ],
+    run: () =>
+      R(
+        "Aww, you're making my antenna glow! 🥰 Thank you, that's so kind.",
+        [],
+        ["Surprise me", "Take a tour"],
+      ),
+  },
+  {
+    kw: ["congrats", "congratulations", "good luck", "goodluck"],
+    run: () =>
+      R("Thank you! 🎉 Wishing you the very best too!", [], BASE_CHIPS),
+  },
+  {
+    kw: [
+      "who are you",
+      "your name",
+      "eli",
+      "what are you",
+      "are you a bot",
+      "are you real",
+      "robot",
+    ],
+    run: () =>
+      R(
+        "I'm Eli, a little robot who lives in Arril's portfolio. I only know what's on this page, but that covers the profile, skills, journey, projects and contacts. I can also give tours, run trivia and jump around the site.",
+        [],
+        ["What can you do?", "Take a tour", "Quiz me"],
+      ),
+  },
+  {
+    kw: [
+      "help",
+      "what can you do",
+      "commands",
+      "features",
+      "capabilities",
+      "options",
+    ],
+    run: () =>
+      R(
+        'Here\'s what I can do:\n• Answer questions about Arril: profile, skills, interests, highlights\n• Explain any project, skill or goal by name\n• Give a guided tour or jump to any section\n• Run a 5-question trivia about the portfolio\n• Switch theme, toggle sound, search the site\n• Share contact details, a joke or a fun fact\n• Remember your name: say "my name is ..."',
+        [],
+        ["Take a tour", "Quiz me", "Skills", "Surprise me"],
+      ),
+  },
+  {
+    kw: [
+      "skill",
+      "skills",
+      "tech",
+      "stack",
+      "tools",
+      "language",
+      "languages",
+      "technology",
+      "technologies",
+      "programming",
+      "good at",
+      "expertise",
+      "software",
+      "capable",
+      "python",
+      "java",
+      "javascript",
+      "html",
+      "css",
+      "mysql",
+      "database",
+      "databases",
+      "sql",
+    ],
+    run: () =>
+      R(
+        `Programming languages and databases: ${PROFILE.languages.join(", ")}.\n${Object.entries(
+          PROFILE.skills,
+        )
+          .map(([k, v]) => `• ${k}: ${v}`)
+          .join("\n")}`,
+        [actFolder("projects")],
+        ["Web projects", "TouchDesigner", "Journey", "Highlights"],
+      ),
+  },
+  {
+    kw: [
+      "interest",
+      "interests",
+      "hobby",
+      "hobbies",
+      "passion",
+      "free time",
+      "enjoy",
+      "favorite",
+      "favourite",
+      "like to do",
+      "likes",
+    ],
+    run: () =>
+      R(
+        `Arril enjoys ${joinList(PROFILE.hobbies)}, and has a passion for leading. The gallery also has snapshots like Night street, Bamboo walk and Picnic Time.`,
+        [{ label: "Go to gallery", fn: () => goTo(".gallery") }],
+        ["Motto", "Skills", "Projects"],
+      ),
+  },
+  {
+    kw: [
+      "goal",
+      "goals",
+      "future",
+      "career",
+      "dream",
+      "dreams",
+      "plan",
+      "plans",
+      "aspire",
+      "ambition",
+      "improve",
+      "improvement",
+    ],
+    run: () =>
+      R(
+        `Arril's aims: ${joinList(PROFILE.goals)}.`,
+        [actFolder("growth"), goContact],
+        ["Motto", "Skills", "Contact"],
+      ),
+  },
+  {
+    kw: [
+      "motto",
+      "quote",
+      "ad emendationem",
+      "latin",
+      "saying",
+      "mantra",
+      "emendationem",
+    ],
+    run: () =>
+      R(
+        `Arril's favorite motto is "${PROFILE.motto}", Latin for "${PROFILE.mottoMeaning}". It reflects the habit behind every project here: build, learn, then make it better.`,
+        [actFolder("growth")],
+        ["Goals", "Skills", "Projects"],
+      ),
+  },
+  {
+    kw: [
+      "working student",
+      "leadership",
+      "leader",
+      "leading",
+      "lead",
+      "strengths",
+      "strength",
+      "personality",
+      "traits",
+      "trait",
+      "soft skills",
+      "job",
+    ],
+    run: () =>
+      R(
+        "Arril is a working student who balances a job with full-time BSIT studies. A passion for leading and a love of developing new things and learning new skills drive the work in this portfolio.",
+        [],
+        ["Motto", "Skills", "Highlights"],
+      ),
+  },
+  {
+    kw: [
+      "achievement",
+      "achievements",
+      "highlight",
+      "highlights",
+      "proud",
+      "best",
+      "accomplishment",
+      "accomplishments",
+    ],
+    run: () =>
+      R(
+        `Highlights:\n• ${liveItems().length} live web projects, including COMSOC PCUD\n• Cavite Rush, a 3D first-person motorcycle booking game\n• TouchDesigner pieces driven by real-time hand tracking${PROFILE.achievements.length ? "\n• " + PROFILE.achievements.join("\n• ") : ""}`,
+        [actFolder("projects")],
+        ["Web projects", "Skills", "Journey"],
+      ),
+  },
+  {
+    kw: ["fun fact", "facts", "did you know", "random fact"],
+    run: () => {
+      const all = [...PROFILE.funFacts, ...facts];
+      return R(
+        all[factI++ % all.length],
+        [],
+        ["Another fact", "Tell me a joke", "Quiz me"],
+      );
+    },
+  },
+  {
+    kw: ["fact"],
+    run: () => {
+      const all = [...PROFILE.funFacts, ...facts];
+      return R(
+        all[factI++ % all.length],
+        [],
+        ["Another fact", "Tell me a joke", "Quiz me"],
+      );
+    },
+  },
+  {
+    kw: ["joke", "funny", "laugh", "pun"],
+    run: () =>
+      R(
+        jokes[jokeI++ % jokes.length],
+        [],
+        ["Another joke", "Fun fact", "Quiz me"],
+      ),
+  },
+  {
+    kw: ["quiz me", "trivia", "game", "play", "test me", "challenge", "ask me"],
+    run: () => {
+      ctx.trivia = { qs: shuffle(BANK).slice(0, 5), i: 0, score: 0 };
+      return triviaQuestion();
+    },
+  },
+  {
+    kw: [
+      "tour",
+      "guide me",
+      "walk me",
+      "walkthrough",
+      "show me around",
+      "start tour",
+    ],
+    run: () => tourStep(0),
+  },
+  {
+    kw: [
+      "go to",
+      "take me",
+      "scroll",
+      "jump",
+      "navigate",
+      "bring me",
+      "show me the",
+    ],
+    run: (q) => {
+      const key = Object.keys(SECTIONS).find((k) => kwHit(q, k));
+      if (!key)
+        return R(
+          "Where to? I can jump to the intro, gallery, projects, folders or contact.",
+          [],
+          ["Go to projects", "Go to gallery", "Go to contact"],
+        );
+      const [sel, label] = SECTIONS[key];
+      if (innerWidth <= 640) setChat(false);
+      goTo(sel);
+      return R(
+        `Taking you to ${label}.`,
+        [],
+        ["Go to projects", "Go to gallery", "Go to contact"],
+      );
+    },
+  },
+  {
+    kw: [
+      "recommend",
+      "suggest",
+      "where should i start",
+      "best project",
+      "top project",
+      "must see",
+      "worth seeing",
+    ],
+    run: () => {
+      const picks = [
+        "BLOOMING INTERACTIVE FLOWER",
+        "POMODORO",
+        "COMSOC PCUD",
+      ].map((n) => allItems.find((x) => x.p.name === n));
+      return R(
+        "Short on time? Start with Blooming Interactive Flower (TouchDesigner plus hand interaction), Pomodoro (a live app you can try right now) and COMSOC PCUD (a full community website).",
+        picks.map(actItem),
+        ["Take a tour", "Surprise me"],
+      );
+    },
+  },
+  {
+    kw: ["surprise", "random", "anything", "pick for me"],
+    run: () => {
+      const m = allItems[Math.floor(Math.random() * allItems.length)];
+      return R(
+        `Here's a random pick: ${m.p.name} (${m.f.name}).`,
+        [actItem(m)],
+        ["Surprise me", "Projects"],
+        { item: m },
+      );
+    },
+  },
+  {
+    kw: [
+      "web app",
+      "web apps",
+      "website",
+      "websites",
+      "live",
+      "demo",
+      "demos",
+      "deployed",
+      "online",
+      "link",
+      "links",
+    ],
+    run: () => {
+      const items = allItems.filter(({ p }) => p.live);
+      const lines = items.map(({ p }) => {
+        let h = "";
+        try {
+          h = new URL(p.link || p.site).host;
+        } catch (e) {}
+        return `• ${p.name}: ${h}`;
+      });
+      return R(
+        `Web projects you can open online:\n${lines.join("\n")}`,
+        items.slice(0, 4).map(actItem),
+        ["Skills", "Projects", "Contact"],
+      );
+    },
+  },
+  {
+    kw: [
+      "project",
+      "projects",
+      "build",
+      "built",
+      "made",
+      "work",
+      "works",
+      "apps",
+      "app",
+      "web",
+      "touchdesigner",
+      "interactive",
+      "computer vision",
+    ],
+    run: (q) => {
+      const tag = /touchdesigner|interactive|vision/.test(q)
+        ? ["TouchDesigner", "Computer Vision"]
+        : /\bweb/.test(q)
+          ? ["Web App"]
+          : null;
+      const items = folderData.projects.projects.filter(
+        (p) => !tag || tag.includes(p.tag),
+      );
+      return R(
+        `${tag ? "Matching" : "The Projects folder has"} ${items.length} ${tag ? "projects" : "files"}: ${items.map((p) => p.name).join(", ")}.`,
+        [actFolder("projects")],
+        ["Web projects", "TouchDesigner", "Recommend one"],
+      );
+    },
+  },
+  {
+    kw: ["journey", "my story", "background", "timeline", "experience"],
+    run: () =>
+      R(
+        "Arril is a BSIT 3B student at PCU-D and a working student who balances a job with full-time classes. Along the way came six live web projects, TouchDesigner pieces and a growing set of IT skills, all with a passion for leading.",
+        [actFolder("journey"), actFolder("growth")],
+        ["Skills", "Goals", "Projects"],
+      ),
+  },
+  {
+    kw: [
+      "gallery",
+      "photo",
+      "photos",
+      "picture",
+      "pictures",
+      "pic",
+      "pics",
+      "image",
+      "images",
+    ],
+    run: () =>
+      R(
+        `The gallery has ${galleryItems.length} photos: ${galleryItems.map((g) => g.querySelector("img").alt).join(", ")}. Tap one to open it full screen, then swipe or use the arrows.`,
+        [{ label: "Go to gallery", fn: () => goTo(".gallery") }],
+        ["Interests", "Projects"],
+      ),
+  },
+  {
+    kw: [
+      "course",
+      "school",
+      "pcu",
+      "bsit",
+      "section",
+      "year",
+      "semester",
+      "university",
+      "study",
+      "studying",
+      "college",
+      "education",
+      "student",
+    ],
+    run: () =>
+      R(
+        `${PROFILE.short} is in ${PROFILE.section} (${PROFILE.year}), taking ${PROFILE.course} at ${PROFILE.school}.`,
+        [],
+        ["Skills", "Projects", "Contact"],
+      ),
+  },
+  {
+    kw: [
+      "contact",
+      "email",
+      "emails",
+      "mail",
+      "reach",
+      "hire",
+      "hiring",
+      "collab",
+      "collaborate",
+      "message",
+      "get in touch",
+      "gmail",
+      "inbox",
+    ],
+    run: () =>
+      R(
+        `${PROFILE.short} would love to hear from you! 💌 You can reach them at ${PROFILE.emails.pcu} (PCU mail) or ${PROFILE.emails.personal} (personal). There's also a message form at the bottom of the page.`,
+        [...contactActions(), goContact],
+        ["Projects", "Skills"],
+      ),
+  },
+  {
+    kw: ["dark", "light", "theme", "invert", "mode"],
+    run: () =>
+      R(
+        "Use the Invert button in the top bar (or press T) for dark mode, and the palette button to pick a color theme: Rose, Ocean, Mint, Sunset or Lavender. Your choices are remembered.",
+        [{ label: "Switch theme", fn: () => $("#invertBtn").click() }],
+        ["Shortcuts", "Sound"],
+      ),
+  },
+  {
+    kw: ["sound", "mute", "unmute", "audio", "volume", "sfx"],
+    run: () => {
+      $("#soundToggle").click();
+      return R(
+        `Sound is now ${isMuted ? "off" : "on"}. Say it again to flip it back.`,
+        [],
+        ["Theme", "Shortcuts"],
+      );
+    },
+  },
+  {
+    kw: ["search", "find", "look for", "lookup"],
+    run: (q, raw) => {
+      const m = raw.match(/(?:search|find|look for|lookup)\s+(?:for\s+)?(.+)/i);
+      const term = m ? m[1].trim() : "";
+      const open = () => {
+        openPalette();
+        if (term) {
+          palInput.value = term;
+          renderPalette();
+        }
+      };
+      return R(
+        term
+          ? `Searching the portfolio for "${term}".`
+          : "Press Ctrl+K (or /) to search every file in the portfolio.",
+        [{ label: "Open search", fn: open }],
+        ["Shortcuts", "Projects"],
+      );
+    },
+  },
+  {
+    kw: [
+      "shortcut",
+      "shortcuts",
+      "keyboard",
+      "keys",
+      "hotkey",
+      "hotkeys",
+      "how to use",
+    ],
+    run: () =>
+      R(
+        "Shortcuts:\n• Ctrl+K or /: search everything\n• T: switch theme\n• Esc: close any panel\n• Arrow keys or swipe: move through images",
+        [{ label: "Open search", fn: openPalette }],
+        ["Theme", "Take a tour"],
+      ),
+  },
+  {
+    kw: [
+      "how many",
+      "count",
+      "stats",
+      "statistics",
+      "numbers",
+      "total",
+      "overview",
+    ],
+    run: () =>
+      R(
+        `At a glance: ${totalFiles()} cards across ${Object.keys(folderData).length} folders (Skills ${folderData.skills.files}, Journey ${folderData.journey.files}, Growth ${folderData.growth.files}, Projects ${folderData.projects.files}), ${galleryItems.length} gallery photos, and ${liveItems().length} live web projects.`,
+        [{ label: "Open folders", fn: () => goTo("#profile") }],
+        ["Highlights", "Projects"],
+      ),
+  },
+  {
+    kw: [
+      "what time",
+      "time is it",
+      "current time",
+      "today s date",
+      "date today",
+      "what date",
+    ],
+    run: () =>
+      R(
+        `Right now it's ${new Date().toLocaleString([], { weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}.`,
+        [],
+        ["Take a tour", "Fun fact"],
+      ),
+  },
+  {
+    kw: [
+      "how old",
+      "birthday",
+      "age",
+      "address",
+      "phone",
+      "contact number",
+      "where do you live",
+      "where does arril live",
+      "single",
+      "boyfriend",
+      "girlfriend",
+      "relationship",
+      "instagram",
+      "facebook",
+      "tiktok",
+      "twitter",
+    ],
+    run: () =>
+      R(
+        "That's personal info Arril hasn't put on this page, so I can't share it. For anything beyond the portfolio, send a message.",
+        [goContact],
+        ["Contact", "About Arril"],
+      ),
+  },
+  {
+    kw: [
+      "cool",
+      "nice",
+      "awesome",
+      "great",
+      "amazing",
+      "love it",
+      "wow",
+      "good job",
+      "impressive",
+      "beautiful",
+    ],
+    run: () =>
+      R(
+        pick([
+          "Thank you so much! 🥹 Arril will be thrilled to hear that.",
+          "Aww, that means a lot! 💛 Arril worked hard on this.",
+          "You're too kind! ✨ Want to tell Arril yourself?",
+        ]),
+        [goContact],
+        ["Contact", "Surprise me"],
+      ),
+  },
+  {
+    kw: ["thanks", "thank you", "thx", "salamat", "ty"],
+    run: () =>
+      R(
+        pick([
+          `You're very welcome${nm()}! 😊`,
+          "Anytime! Happy to help. 💛",
+          "My pleasure! That's what I'm here for.",
+        ]) + " Come back whenever you like.",
+        [],
+        ["Take a tour", "Contact"],
+      ),
+  },
+  {
+    kw: ["bye", "goodbye", "see you", "cya", "ingat"],
+    run: () =>
+      R(
+        `Bye${nm()}! 👋 It was lovely chatting with you. Take care, and thanks for visiting Arril's portfolio!`,
+        [],
+        ["Contact", "Take a tour"],
+      ),
+  },
+  {
+    kw: ["clear", "reset", "start over"],
+    run: () => ({
+      ...R("Fresh start! What would you like to see?", [], BASE_CHIPS),
+      clear: true,
+    }),
+  },
+  {
+    kw: [
+      "who is arril",
+      "who s arril",
+      "about arril",
+      "introduce",
+      "bio",
+      "summary",
+      "profile",
+      "carlos",
+      "arril",
+      "yourself",
+      "about you",
+    ],
+    w: 0.4,
+    run: () =>
+      R(
+        `${PROFILE.name} is a ${PROFILE.section} student (${PROFILE.year}) taking ${PROFILE.course} at ${PROFILE.school}. The work spans interactive media in TouchDesigner, computer vision, web apps and cloud and networking basics, all compiled in this portfolio. Arril is also a working student with a passion for leading, living by the motto "${PROFILE.motto}".`,
+        [],
+        ["Skills", "Motto", "Highlights", "Contact"],
+      ),
+  },
+];
+
+const WARM = [
+  "skill",
+  "interest",
+  "goal",
+  "achievement",
+  "project",
+  "journey",
+  "gallery",
+  "course",
+  "web app",
+  "motto",
+  "working student",
+  "who is arril",
+  "how many",
+  "recommend",
+];
+INTENTS.forEach((i) => {
+  if (WARM.includes(i.kw[0])) i.warm = true;
+});
+
+function fallback(q) {
+  ctx.misses++;
+  const stop = new Set([
+    "the",
+    "and",
+    "what",
+    "who",
+    "how",
+    "about",
+    "tell",
+    "can",
+    "you",
+    "are",
+    "for",
+    "this",
+    "that",
+    "with",
+    "have",
+    "does",
+    "show",
+    "arril",
+  ]);
+  const toks = q.split(" ").filter((t) => t.length > 2 && !stop.has(t));
+  const hits = allItems
+    .map((it) => ({
+      it,
+      s: toks.filter((t) =>
+        norm(`${it.p.name} ${it.p.tag} ${it.p.desc} ${it.f.name}`).includes(t),
+      ).length,
+    }))
+    .filter((x) => x.s)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 3);
+  if (hits.length)
+    return R(
+      "Hmm, I'm not totally sure what you meant, but these might be what you're looking for:",
+      hits.map((x) => actItem(x.it)),
+      ["Projects", "Skills", "Contact"],
+    );
+  if (ctx.misses >= 2)
+    return R(
+      "Sorry, that one is beyond what I know yet. 😅 The quickest way to get a real answer is to message Arril directly, who'd be glad to help!",
+      [...contactActions().slice(0, 2), goContact],
+      BASE_CHIPS,
+    );
+  return R(
+    "Oops, that one went over my head! 😅 I know a lot about Arril's profile, skills, journey, projects and contacts. Try one of the suggestions below, or say \"help\" and I'll show you what I can do.",
+    [],
+    BASE_CHIPS,
+  );
+}
+
+function respond(raw) {
+  const q = norm(raw);
+  let m = raw.match(/\b(?:my name is|call me)\s+([a-z][a-z'-]{1,20})/i);
+  if (m) {
+    ctx.name = m[1][0].toUpperCase() + m[1].slice(1);
+    try {
+      localStorage.setItem("eliUser", ctx.name);
+    } catch (e) {}
+    return R(
+      `Nice to meet you, ${ctx.name}! 😊 I'll remember your name. What would you like to explore?`,
+      [],
+      BASE_CHIPS,
+    );
+  }
+  if (/^(what s my name|what is my name|who am i)$/.test(q))
+    return R(
+      ctx.name
+        ? `You're ${ctx.name}.`
+        : 'I don\'t know yet. Tell me with "my name is ...".',
+      [],
+      BASE_CHIPS,
+    );
+  if (
+    /^(more|tell me more|details|go on|continue|elaborate|more like this)$/.test(
+      q,
+    )
+  )
+    return more();
+  if (/^(open it|open that|show it|yes|yeah|yep|sure|ok|okay)$/.test(q)) {
+    if (ctx.last && ctx.last.item) {
+      choosePal(ctx.last.item);
+      return R(`Opening ${ctx.last.item.p.name}.`, [], BASE_CHIPS, ctx.last);
+    }
+    return R("What would you like to see?", [], BASE_CHIPS);
+  }
+  if (ctx.tourActive && /^(next|next stop)$/.test(q))
+    return tourStep(ctx.tour + 1);
+  if (/^stop( tour)?$/.test(q)) {
+    ctx.tourActive = false;
+    return R(
+      "No problem, tour stopped! Ask me anything else. 😊",
+      [],
+      BASE_CHIPS,
+    );
+  }
+  const item = findItem(q);
+  if (item) return projectReply(item);
+  let best = null,
+    top = 0;
+  for (const it of INTENTS) {
+    const s =
+      it.kw.reduce((n, w) => n + (kwHit(q, w) ? w.split(" ").length : 0), 0) *
+      (it.w || 1);
+    if (s > top) {
+      best = it;
+      top = s;
+    }
+  }
+  if (best) {
+    ctx.misses = 0;
+    const res = best.run(q, raw);
+    if (best.warm && Math.random() < 0.5) res.text += " " + pick(closers);
+    return res;
+  }
+  return fallback(q);
+}
+
+let chatHistory = [];
+try {
+  chatHistory = JSON.parse(sessionStorage.getItem("eliChat") || "[]");
+} catch (e) {
+  chatHistory = [];
+}
+function persistChat() {
+  try {
+    sessionStorage.setItem("eliChat", JSON.stringify(chatHistory.slice(-60)));
+  } catch (e) {}
+}
+function say(text, who, actions = [], save = true) {
+  const m = document.createElement("div");
+  m.className = `msg ${who}`;
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  const p = document.createElement("p");
+  p.textContent = text;
+  body.append(p);
+  if (actions.length) {
+    const row = document.createElement("div");
+    row.className = "msg-actions";
+    actions.forEach((a) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = a.label;
+      b.addEventListener("click", (e) => a.fn(e));
+      row.append(b);
+    });
+    body.append(row);
+  }
+  if (who === "bot") {
+    const av = document.createElement("span");
+    av.className = "msg-eli";
+    av.innerHTML = ELI;
+    m.append(av);
+  }
+  m.append(body);
+  chatLog.append(m);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  if (save && text) {
+    chatHistory.push({ t: text, w: who });
+    persistChat();
+  }
+  return m;
+}
+function setChips(list) {
+  chatChips.innerHTML = "";
+  [...new Set(list && list.length ? list : BASE_CHIPS)]
+    .slice(0, 6)
+    .forEach((c) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = c;
+      b.addEventListener("click", () => ask(c));
+      chatChips.append(b);
+    });
+  chatChips.scrollLeft = 0;
+}
+function speak(res, react = true) {
+  say(res.text, "bot", res.actions);
+  setChips(res.chips);
+  if (res.last !== undefined) ctx.last = res.last;
+  if (react) eliReact("hop");
+}
+function ask(text) {
+  const raw = text.trim();
+  if (!raw) return;
+  say(raw, "user");
+  eliReact("think", 900);
+  const typing = say("", "bot");
+  typing.classList.add("typing");
+  typing.querySelector("p").innerHTML =
+    '<span class="dots"><i></i><i></i><i></i></span>';
+  const res = respond(raw);
+  setTimeout(
+    () => {
+      typing.remove();
+      if (res.clear) {
+        chatLog.replaceChildren();
+        chatHistory = [];
+        persistChat();
+      }
+      speak(res);
+    },
+    Math.min(1100, 450 + res.text.length * 5),
+  );
+}
+setChips(BASE_CHIPS);
+function setChat(open, focus = true) {
+  chat.classList.toggle("open", open);
+  chatBtn.setAttribute("aria-expanded", open);
+  eliBubble.hidden = true;
+  if (open) {
+    if (!chatLog.children.length) {
+      const hr = new Date().getHours();
+      const greet =
+        hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+      say(
+        `${greet}${ctx.name ? ", " + ctx.name : ""}! 👋 I'm Eli, Arril's little robot friend. I'm so happy you stopped by! Ask me about Arril, the projects, skills or journey, or try a tour or a quick quiz.`,
+        "bot",
+      );
+    }
+    eliReact("hop");
+    chatLog.scrollTop = chatLog.scrollHeight;
+    if (focus) setTimeout(() => chatInput.focus(), 200);
+  }
+  try {
+    sessionStorage.setItem("eliOpen", open ? "1" : "0");
+  } catch (e) {}
+}
+chatBtn.addEventListener("click", () =>
+  setChat(!chat.classList.contains("open")),
+);
+$("#chatClose").addEventListener("click", () => setChat(false));
+$("#chatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  ask(chatInput.value);
+  chatInput.value = "";
+});
+chatHistory.forEach((m) => say(m.t, m.w, [], false));
+let wasOpen = false;
+try {
+  wasOpen = sessionStorage.getItem("eliOpen") === "1";
+} catch (e) {}
+if (chatHistory.length && wasOpen) setChat(true, false);
+let nudged = chatHistory.length > 0;
+try {
+  nudged = nudged || sessionStorage.getItem("eliNudge") === "1";
+} catch (e) {}
+if (!nudged) {
+  setTimeout(() => {
+    if (chat.classList.contains("open")) return;
+    eliBubble.hidden = false;
+    eliReact("hop");
+    try {
+      sessionStorage.setItem("eliNudge", "1");
+    } catch (e) {}
+    setTimeout(() => (eliBubble.hidden = true), 7000);
+  }, 5000);
+}
+
+lucide.createIcons();
+
+/* ─────────────────────────────────────────────────────────────
+   Name FX — "task tracker" hop effect for the hero name.
+   A box hops letter to letter, the letter inside turns into a
+   dashed outline, a status pill pops up, and dashed arrows trail
+   behind. Purely decorative: it never changes the real text.
+   To remove it: delete this file's <script> tag in index.html.
+   ───────────────────────────────────────────────────────────── */
+(function () {
+  "use strict";
+
+  var h1 = document.querySelector(".hero-name");
+  if (!h1) return;
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var HOP_MS = 120; // box travel time per hop while chasing the mouse (fast)
+  var CALM_MS = 340; // box travel time per hop when it runs by itself (gentle)
+  var MAX_ARCS = 14;
+  var live = [];
+  var uid = 0;
+
+  /* ── pill labels: all taken from this portfolio ── */
+  var DOT = '<circle cx="5" cy="5" r="3.3" fill="currentColor"/>';
+  function tag(label, dark) { return { key: dark ? "dark" : "light", label: label, icon: DOT }; }
+  var STATES = [
+    tag("Hi, I'm Arril"), // always the first one
+    tag("BSIT 3B"),
+    tag("Ad emendationem", true),
+    tag("Cloud Computing"),
+    tag("Working Student"),
+    tag("TouchDesigner"),
+    tag("Computer Vision"),
+    tag("Web Projects"),
+    tag("Cavite Rush · Live"),
+    tag("Ubuntu · VirtualBox"),
+    tag("MySQL"),
+    tag("Git & GitHub", true),
+    tag("Python & Java"),
+    tag("Leadership")
+  ];
+
+  var HAND =
+    '<svg viewBox="0 0 24 24" width="22" height="22" fill="var(--bg)" stroke="var(--text)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">' +
+    '<path d="M9 11V5.2a1.7 1.7 0 0 1 3.4 0V10"/>' +
+    '<path d="M12.4 10V4.2a1.7 1.7 0 0 1 3.4 0V10.5"/>' +
+    '<path d="M15.8 10.5V6a1.6 1.6 0 0 1 3.2 0v7.2c0 4-2.4 7.3-6.4 7.3h-1.2c-2.2 0-3.6-1-4.9-2.7L4 14.6a1.6 1.6 0 0 1 2.5-2L9 15"/>' +
+    "</svg>";
+
+  /* ── overlay DOM (lives beside the .line spans, so their overflow:hidden can't clip it) ── */
+  var fx = document.createElement("span");
+  fx.className = "hn-fx";
+  fx.setAttribute("aria-hidden", "true");
+  fx.innerHTML =
+    '<svg class="hn-trail" xmlns="' + SVGNS + '"><defs>' +
+    '<marker id="hnArrow" viewBox="0 0 10 10" refX="8.2" refY="5" markerWidth="7.5" markerHeight="7.5" markerUnits="userSpaceOnUse" orient="auto">' +
+    '<path d="M1.6 1.6 8.4 5 1.6 8.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>' +
+    '<g class="hn-masks"></g></defs><g class="hn-arcs"></g></svg>' +
+    '<span class="hn-box"><svg class="hn-glyph" xmlns="' + SVGNS + '"><text></text></svg></span>' +
+    '<span class="hn-pill"><span class="hn-pill-in"><svg class="hn-ico" viewBox="0 0 10 10" width="10" height="10"></svg><span class="hn-lab"></span></span></span>' +
+    '<span class="hn-hand">' + HAND + "</span>";
+  h1.appendChild(fx);
+
+  var trail = fx.querySelector(".hn-trail");
+  var masks = fx.querySelector(".hn-masks");
+  var arcs = fx.querySelector(".hn-arcs");
+  var box = fx.querySelector(".hn-box");
+  var glyph = fx.querySelector(".hn-glyph");
+  var glyphText = glyph.querySelector("text");
+  var pill = fx.querySelector(".hn-pill");
+  var ico = fx.querySelector(".hn-ico");
+  var lab = fx.querySelector(".hn-lab");
+  var hand = fx.querySelector(".hn-hand");
+  var ctx = document.createElement("canvas").getContext("2d");
+
+  /* ── letters of the name (skips spaces and punctuation) ── */
+  function collect() {
+    var out = [];
+    var walker = document.createTreeWalker(h1, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        return fx.contains(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var n;
+    while ((n = walker.nextNode())) {
+      var t = n.nodeValue;
+      for (var i = 0; i < t.length; i++) {
+        if (/[A-Za-z0-9\u00C0-\u024F]/.test(t[i])) out.push({ node: n, i: i, ch: t[i] });
+      }
+    }
+    return out;
+  }
+
+  /* ── geometry of one letter, relative to the h1 ── */
+  function geom(L) {
+    var r = document.createRange();
+    r.setStart(L.node, L.i);
+    r.setEnd(L.node, L.i + 1);
+    var rc = r.getBoundingClientRect();
+    var hb = h1.getBoundingClientRect();
+    var el = L.node.parentNode;
+    var cs = getComputedStyle(el);
+    var fs = parseFloat(cs.fontSize);
+    ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    var m = ctx.measureText(L.ch);
+    var asc = m.fontBoundingBoxAscent != null ? m.fontBoundingBoxAscent : fs * 0.95;
+    var ox = rc.left - hb.left;
+    var base = rc.top - hb.top + asc;
+    var pad = Math.max(5, fs * 0.075);
+    var gl = ox - m.actualBoundingBoxLeft;
+    var gr = ox + m.actualBoundingBoxRight;
+    var gt = base - m.actualBoundingBoxAscent;
+    var gb = base + m.actualBoundingBoxDescent;
+    var w = Math.max(gr - gl + pad * 2, fs * 0.42);
+    var cx = (gl + gr) / 2;
+    return {
+      x: cx - w / 2,
+      y: gt - pad,
+      w: w,
+      h: gb - gt + pad * 2,
+      ox: ox,
+      base: base,
+      ch: L.ch,
+      r: Math.max(6, fs * 0.12),
+      font: { family: cs.fontFamily, size: cs.fontSize, weight: cs.fontWeight, style: cs.fontStyle }
+    };
+  }
+
+  function instant(fn) {
+    fx.classList.add("hn-instant");
+    fn();
+    void fx.offsetWidth;
+    fx.classList.remove("hn-instant");
+  }
+
+  function place(g) {
+    box.style.width = g.w + "px";
+    box.style.height = g.h + "px";
+    box.style.borderRadius = g.r + "px";
+    box.style.transform = "translate(" + g.x + "px," + g.y + "px)";
+    glyph.setAttribute("width", g.w);
+    glyph.setAttribute("height", g.h);
+    glyphText.textContent = g.ch;
+    glyphText.setAttribute("x", g.ox - g.x - 2); // 2px = box border
+    glyphText.setAttribute("y", g.base - g.y - 2);
+    glyphText.style.fontFamily = g.font.family;
+    glyphText.style.fontSize = g.font.size;
+    glyphText.style.fontWeight = g.font.weight;
+    glyphText.style.fontStyle = g.font.style;
+    hand.style.transform = "translate(" + (g.x + g.w - 7) + "px," + (g.y + g.h - 9) + "px)";
+  }
+
+  /* ── dashed arrow arcing from one stop to the next ── */
+  function arc(a, b, calm) {
+    var x1 = a.x + a.w / 2, y1 = a.y - 3;
+    var x2 = b.x + b.w / 2, y2 = b.y - 5;
+    var dist = Math.hypot(x2 - x1, y2 - y1);
+    var lift = Math.min(56, Math.max(16, dist * 0.42));
+    var d = "M" + x1 + " " + y1 + " Q" + (x1 + x2) / 2 + " " + (Math.min(y1, y2) - lift) + " " + x2 + " " + y2;
+    var id = "hnm" + uid++;
+    var hb = h1.getBoundingClientRect();
+
+    var mask = document.createElementNS(SVGNS, "mask");
+    mask.setAttribute("id", id);
+    mask.setAttribute("maskUnits", "userSpaceOnUse");
+    mask.setAttribute("x", -200);
+    mask.setAttribute("y", -200);
+    mask.setAttribute("width", hb.width + 400);
+    mask.setAttribute("height", hb.height + 400);
+    var reveal = document.createElementNS(SVGNS, "path");
+    reveal.setAttribute("d", d);
+    reveal.setAttribute("class", "hn-draw" + (calm ? " calm" : ""));
+    mask.appendChild(reveal);
+    masks.appendChild(mask);
+
+    var p = document.createElementNS(SVGNS, "path");
+    p.setAttribute("d", d);
+    p.setAttribute("class", "hn-arc" + (calm ? " calm" : ""));
+    p.setAttribute("marker-end", "url(#hnArrow)");
+    p.setAttribute("mask", "url(#" + id + ")");
+    arcs.appendChild(p);
+
+    var len = reveal.getTotalLength();
+    reveal.style.strokeDasharray = len + " " + len;
+    reveal.style.strokeDashoffset = len;
+    void reveal.getBoundingClientRect();
+    reveal.classList.add("go");
+
+    var item = { p: p, mask: mask };
+    live.push(item);
+    function drop() {
+      if (p.parentNode) p.parentNode.removeChild(p);
+      if (mask.parentNode) mask.parentNode.removeChild(mask);
+    }
+    setTimeout(drop, calm ? 4200 : 1900);
+    if (live.length > MAX_ARCS) {
+      var old = live.shift();
+      if (old.p.parentNode) old.p.parentNode.removeChild(old.p);
+      if (old.mask.parentNode) old.mask.parentNode.removeChild(old.mask);
+    }
+  }
+
+  /* ── status pill ── */
+  var lastState = null;
+  function showPill(g, st) {
+    lastState = st;
+    lab.textContent = typeof st.label === "function" ? st.label() : st.label;
+    ico.innerHTML = st.icon;
+    pill.className = "hn-pill is-" + st.key;
+    var pw = pill.offsetWidth, ph = pill.offsetHeight;
+    var maxLeft = h1.offsetWidth - pw + 6;
+    var left = Math.min(maxLeft, Math.max(-6, g.x + g.w / 2 - pw / 2));
+    pill.style.transform = "translate(" + left + "px," + (g.y - ph - 8) + "px)";
+    void pill.offsetWidth;
+    pill.classList.add("show");
+  }
+  function hidePill() {
+    pill.classList.remove("show");
+  }
+
+  /* ── helpers ── */
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  var queue = [];
+  function nextState() {
+    if (!queue.length) queue = shuffle(STATES.slice(1));
+    return queue.pop();
+  }
+
+  var onScreen = true;
+  function canRun() { return onScreen && !document.hidden; }
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (e) {
+      onScreen = e[0].isIntersecting;
+    }, { threshold: 0.15 }).observe(h1);
+  }
+
+  /* ── state ── */
+  var hero = h1.closest(".hero") || h1;
+  var letters = [];
+  var boxes = [];
+  var idx = 0;
+  var prev = null;
+  var ready = false;
+  var inHero = false;
+  var target = -1;
+  var lastMove = 0;
+  var lastHop = 0;
+  var autoNext = 0;
+  var hopsLeft = 3;
+  var pillTimer = 0;
+
+  function refresh() {
+    boxes = letters.map(geom);
+    trail.style.width = h1.offsetWidth + "px";
+  }
+
+  function hop(i, fast) {
+    fx.style.setProperty("--hn-dur", (fast ? HOP_MS : CALM_MS) + "ms");
+    fx.classList.toggle("hn-calm", !fast);
+    var g = geom(letters[i]);
+    boxes[i] = g;
+    place(g);
+    if (prev && i !== idx) arc(prev, g, !fast);
+    prev = g;
+    idx = i;
+    lastHop = performance.now();
+    hidePill();
+    clearTimeout(pillTimer);
+    pillTimer = setTimeout(function () { showPill(prev, nextState()); }, 170);
+  }
+
+  /* ── mouse / touch: chase the letter nearest the pointer ── */
+  function onPointer(e) {
+    var hr = hero.getBoundingClientRect();
+    inHero = e.clientX >= hr.left && e.clientX <= hr.right && e.clientY >= hr.top && e.clientY <= hr.bottom;
+    if (!inHero || !boxes.length) return;
+    var hb = h1.getBoundingClientRect();
+    var px = e.clientX - hb.left, py = e.clientY - hb.top;
+    var best = -1, bd = Infinity;
+    for (var i = 0; i < boxes.length; i++) {
+      var b = boxes[i];
+      var dx = Math.max(b.x - px, 0, px - (b.x + b.w));
+      var dy = Math.max(b.y - py, 0, py - (b.y + b.h));
+      var d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    target = best;
+    lastMove = performance.now();
+  }
+  document.addEventListener("pointermove", onPointer, { passive: true });
+  document.addEventListener("pointerdown", onPointer, { passive: true });
+  document.documentElement.addEventListener("pointerleave", function () { inHero = false; });
+
+  /* ── the loop: never stops. Mouse in control when active, otherwise it runs itself ── */
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!ready || !canRun()) return;
+    var pointerActive = inHero && now - lastMove < 1400;
+    if (pointerActive) {
+      if (target >= 0 && target !== idx && now - lastHop >= 55) hop(target, true);
+      autoNext = now + 1200;
+    } else if (now >= autoNext) {
+      var r = Math.random();
+      var ni = idx + (r < 0.12 ? 2 : 1);
+      if (ni >= letters.length) ni = 0; // wrap around, no fade, no pause
+      if (ni < 0) ni = 0;
+      hop(ni, false);
+      hopsLeft--;
+      if (hopsLeft > 0) {
+        autoNext = now + 520;
+      } else {
+        hopsLeft = 1 + Math.floor(Math.random() * 3);
+        autoNext = now + 1900;
+      }
+    }
+  }
+
+  function init() {
+    letters = collect();
+    if (!letters.length) { fx.parentNode.removeChild(fx); return; }
+    refresh();
+    idx = 0;
+    prev = boxes[0];
+    instant(function () { place(prev); });
+    fx.classList.add("on");
+    autoNext = performance.now() + 1500;
+    pillTimer = setTimeout(function () { showPill(prev, STATES[0]); }, 500); // starts "Done"
+    ready = true;
+    requestAnimationFrame(frame);
+  }
+
+  /* keep the box glued to its letter when the layout changes */
+  var rz;
+  window.addEventListener("resize", function () {
+    clearTimeout(rz);
+    rz = setTimeout(function () {
+      if (!ready) return;
+      refresh();
+      prev = boxes[idx];
+      instant(function () {
+        place(prev);
+        if (pill.classList.contains("show") && lastState) showPill(prev, lastState);
+      });
+    }, 150);
+  });
+
+  /* ── start once the page loader is gone and fonts are in ── */
+  function start() {
+    var go = function () {
+      (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+        setTimeout(function () {
+          try { init(); } catch (e) { if (fx.parentNode) fx.parentNode.removeChild(fx); }
+        }, 400);
+      });
+    };
+    var ov = document.getElementById("loaderOverlay");
+    if (!ov || ov.classList.contains("gone") || ov.classList.contains("exit")) return go();
+    var mo = new MutationObserver(function () {
+      if (ov.classList.contains("exit") || ov.classList.contains("gone")) {
+        mo.disconnect();
+        setTimeout(go, 900);
+      }
+    });
+    mo.observe(ov, { attributes: true, attributeFilter: ["class"] });
+  }
+  start();
+})();
